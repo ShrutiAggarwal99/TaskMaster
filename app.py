@@ -3,7 +3,6 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from flask_wtf import FlaskForm
 from wtforms import Form, StringField, TextAreaField, PasswordField, validators
-from passlib.hash import sha256_crypt
 
 
 app = Flask(__name__)
@@ -17,11 +16,27 @@ db = SQLAlchemy(app)
 
 class User(db.Model):  # create a new class which inherits from a basic database model, provided by SQLAlchemy
     # SQLAlchemy also creates a table called user, which it will use to store our User objects.
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False)
-    email = db.Column(db.String(50), nullable=False)
-    username = db.Column(db.String(30), nullable=False)
-    password = db.Column(db.String(30), nullable=False)
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+    )
+    name = db.Column(
+        db.String(50), 
+        unique=True, 
+        nullable=False,
+    )
+    email = db.Column(
+        db.String(50), 
+        nullable=False,
+    )
+    username = db.Column(
+        db.String(30),
+        primary_key=True,
+    )
+    password = db.Column(
+        db.String(30), 
+        nullable=False,
+    )
     
     # defines how to represent our User object as a string. This allows us to do things like print(User)
     def __repr__(self):
@@ -30,10 +45,25 @@ class User(db.Model):  # create a new class which inherits from a basic database
 
 class ToDo(db.Model):
     # SQLAlchemy create a table called "toDo", which it will use to store our "ToDo" objects.
-    id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(200), nullable=False)
-    date_created = db.Column(db.DateTime, default=datetime.utcnow)
-    user_id = db.Column(db.Integer, nullable=False)
+    id = db.Column(
+        db.Integer, 
+        primary_key=True
+    )
+    content = db.Column(
+        db.String(200), 
+        nullable=False
+    )
+    date_created = db.Column(
+        db.DateTime, 
+        default=datetime.utcnow
+    )
+    user_id = db.Column(
+        db.Integer, 
+        db.ForeignKey('user.id'),
+        nullable=False,
+    )
+    user = db.relationship('User',
+        backref=db.backref('to_dos', lazy=True))
 
     def __repr__(self):
         return '<Task %r>' % self.id
@@ -72,8 +102,8 @@ def register():
             name = form.name.data
             email = form.email.data
             username = form.username.data
-            password = sha256_crypt.encrypt(str(form.password.data))
-            new_user = User(name=name, email=email, username=username, password=passw)
+            password = form.password.data
+            new_user = User(name=name, email=email, username=username, password=password)
             print("User created!")
             try:
                 db.session.add(new_user)
@@ -98,20 +128,17 @@ def login():
     else:
         form = LoginForm(request.form)
         if form.validate():
-            name = form.username.data
-            # passw = sha256_crypt.encrypt(str(form.password.data))
+            username = form.username.data
             passw = form.password.data
             try:
-                user = User.query.filter_by(username=name)
-                if user!=NULL and sha256_crypt.verify(passw, user.password):
+                user = User.query.filter_by(username=username)
+                if user is not None and passw == user.password:
                     session.logged_in = True
                     return redirect(url_for('home'),current_user=user)
                 else:
-                    # return redirect(url_for('register'))
-                    return "User not valid!"
+                    return redirect(url_for('register'))
             except:
-                # return redirect(url_for('register'))
-                return "Error occured in filtering"
+                return redirect(url_for('register'))
         else:
             return "Form not validated!"
         
@@ -170,11 +197,3 @@ if __name__ == "__main__":
     app.run(debug=True)
 
 
-
-# command to enter the virtual environment :
-# source env/bin/activate
-
-# command to create the db :
-# python (will open python3 shell)
-# from app import db
-# db.create_all()
